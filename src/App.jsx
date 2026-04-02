@@ -1,26 +1,42 @@
 import { useState } from "react";
 import clsx from "clsx";
 import { languages } from "./languages.js";
+import { getFarewellText, getRandomWord } from "./utils.js";
 
 export default function AssemblyEndgame() {
-  const [currentWord, setCurrentWord] = useState("react");
+  const [currentWord, setCurrentWord] = useState(() => getRandomWord());
 
   const [guessedLetters, setGuessedLetters] = useState([]);
+
+  const numGuessesLeft = languages.length - 1;
+
+  const wrongGuessCount = guessedLetters.filter(
+    (letter) => !currentWord.includes(letter),
+  ).length;
+
+  const isGameWon = currentWord
+    .split("")
+    .every((letter) => guessedLetters.includes(letter));
+  const isGameLost = wrongGuessCount >= numGuessesLeft;
+  const isGameOver = isGameWon || isGameLost;
+  const lastGuessedLetter = guessedLetters[guessedLetters.length - 1];
+  const isLastGuessIncorrect =
+    lastGuessedLetter && !currentWord.includes(lastGuessedLetter);
 
   const alphabet = "abcdefghijklmnopqrstuvwxyz";
 
   const addGuessedLetter = (letter) => {
     setGuessedLetters((prevLetters) =>
-      prevLetters.includes(letter) ?
-      prevLetters : 
-      [...prevLetters, letter]
+      prevLetters.includes(letter) ? prevLetters : [...prevLetters, letter],
     );
   };
 
-  const languageElements = languages.map((language) => {
+  const languageElements = languages.map((language, index) => {
+    const isLanguageLost = wrongGuessCount > index;
+    const className = clsx("chip", isLanguageLost && "lost");
     return (
       <span
-        className="chip"
+        className={className}
         key={language.name}
         style={{
           backgroundColor: language.backgroundColor,
@@ -33,7 +49,11 @@ export default function AssemblyEndgame() {
   });
 
   const letterElements = currentWord.split("").map((letter, index) => {
-    return <span key={index}>{letter.toUpperCase()}</span>;
+    return (
+      <span key={index}>
+        {guessedLetters.includes(letter) ? letter.toUpperCase() : ""}
+      </span>
+    );
   });
 
   const keyboardElements = alphabet.split("").map((letter) => {
@@ -41,16 +61,58 @@ export default function AssemblyEndgame() {
     const isCorrect = isGuessed && currentWord.includes(letter);
     const isWrong = isGuessed && !currentWord.includes(letter);
     const className = clsx({
-      "correct": isCorrect,
-      "wrong": isWrong,
+      correct: isCorrect,
+      wrong: isWrong,
     });
 
     return (
-      <button onClick={() => addGuessedLetter(letter)} key={letter} className={className}>
+      <button
+        onClick={() => addGuessedLetter(letter)}
+        key={letter}
+        disabled={isGameOver}
+        aria-disabled={guessedLetters.includes(letter)}
+        aria-label={`Letter ${letter}`}
+        className={className}
+      >
         {letter.toUpperCase()}
       </button>
     );
   });
+
+  const gameStatusClassName = clsx("game-status", {
+    won: isGameWon,
+    lost: isGameLost,
+    farewell: !isGameOver && isLastGuessIncorrect,
+  });
+
+  const renderGameStatus = () => {
+    if (!isGameOver && isLastGuessIncorrect) {
+      return (
+        <p className="farewell-message">
+          {getFarewellText(languages[wrongGuessCount - 1].name)}
+        </p>
+      );
+    }
+
+    if (isGameWon) {
+      return (
+        <>
+          <h2>You win!</h2>
+          <p>Well done! 🎉</p>
+        </>
+      );
+    }
+    if (isGameLost) {
+      return (
+        <>
+          <h2>Game over!</h2>
+          <p>You lose! Better start learning Assembly 😭</p>
+        </>
+      );
+    }
+
+    return null;
+  };
 
   return (
     <main>
@@ -61,14 +123,32 @@ export default function AssemblyEndgame() {
           from Assembly!
         </p>
       </header>
-      <section className="game-status">
-        <h2>You win!</h2>
-        <p>Well done! 🎉</p>
+      <section aria-live="polite" role="status" className={gameStatusClassName}>
+        {renderGameStatus()}
       </section>
       <section className="language-chips">{languageElements}</section>
       <section className="word">{letterElements}</section>
+
+      {/* Combined visually-hidden aria-live region for status updates */}
+      <section className="sr-only" aria-live="polite" role="status">
+        <p>
+          {currentWord.includes(lastGuessedLetter)
+            ? `Correct! The letter ${lastGuessedLetter} is in the word.`
+            : `Sorry, the letter ${lastGuessedLetter} is not in the word.`}
+          You have {numGuessesLeft} attempts left.
+        </p>
+        <p>
+          Current word:{" "}
+          {currentWord
+            .split("")
+            .map((letter) =>
+              guessedLetters.includes(letter) ? letter + "." : "blank.",
+            )
+            .join(" ")}
+        </p>
+      </section>
       <section className="keyboard">{keyboardElements}</section>
-      <button className="new-game">New Game</button>
+      {isGameOver && <button className="new-game">New Game</button>}
     </main>
   );
 }
