@@ -2,6 +2,7 @@ import { useState } from "react";
 import clsx from "clsx";
 import { languages } from "./languages.js";
 import { getFarewellText, getRandomWord } from "./utils.js";
+import Confetti from "react-confetti";
 
 export default function AssemblyEndgame() {
   const [currentWord, setCurrentWord] = useState(() => getRandomWord());
@@ -31,6 +32,11 @@ export default function AssemblyEndgame() {
     );
   };
 
+  const startNewGame = () => {
+    setCurrentWord(getRandomWord());
+    setGuessedLetters([]);
+  };
+
   const languageElements = languages.map((language, index) => {
     const isLanguageLost = wrongGuessCount > index;
     const className = clsx("chip", isLanguageLost && "lost");
@@ -49,9 +55,13 @@ export default function AssemblyEndgame() {
   });
 
   const letterElements = currentWord.split("").map((letter, index) => {
+    const shouldRevealLetter = isGameLost || guessedLetters.includes(letter);
+    const letterClassName = clsx(
+      isGameLost && !guessedLetters.includes(letter) && "missed-letter",
+    );
     return (
-      <span key={index}>
-        {guessedLetters.includes(letter) ? letter.toUpperCase() : ""}
+      <span key={index} className={letterClassName}>
+        {shouldRevealLetter ? letter.toUpperCase() : ""}
       </span>
     );
   });
@@ -116,6 +126,13 @@ export default function AssemblyEndgame() {
 
   return (
     <main>
+      {
+        isGameWon && 
+          <Confetti
+            recycle={false}
+            numberOfPieces={1000}
+            />
+      }
       <header>
         <h1>Assembly: Endgame</h1>
         <p>
@@ -148,7 +165,11 @@ export default function AssemblyEndgame() {
         </p>
       </section>
       <section className="keyboard">{keyboardElements}</section>
-      {isGameOver && <button className="new-game">New Game</button>}
+      {isGameOver && (
+        <button className="new-game" onClick={startNewGame}>
+          New Game
+        </button>
+      )}
     </main>
   );
 }
